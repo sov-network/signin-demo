@@ -94,14 +94,17 @@ $('go').onclick = async () => {
       if (v.status === 'expired') throw new Error('EXPIRED');
       await sleep(1500);
     }
-    for (let i = 0; i < 6 && !v.callback; i++) {           // the signed callback can land a moment later
-      await sleep(1500);
-      v = await (await fetch(API + '/status?session_id=' + s.session_id)).json();
-    }
     $('nick').textContent = v.palm_name || 'citizen';
     $('sid').textContent = v.sovereign_id;
-    $('cb').textContent = v.callback ? 'received and checked ✓' : 'not received';
     $('s2').classList.add('hidden'); $('s3').classList.remove('hidden');
+    // The node ALSO posts a signed result to this site's backend; the backend accepts it only if its
+    // HMAC checks out. It can take up to a minute to show here, so keep looking.
+    $('cb').textContent = 'waiting…';
+    for (let i = 0; i < 40 && !v.callback; i++) {
+      await sleep(3000);
+      v = await (await fetch(API + '/status?session_id=' + s.session_id)).json();
+    }
+    $('cb').textContent = v.callback ? 'received and checked ✓' : 'not received';
   } catch (e) {
     $('s2').classList.add('hidden'); $('s1').classList.remove('hidden');
     const m = { PLATFORM_NOT_REGISTERED: 'This site is not registered with the SOV network right now.',
