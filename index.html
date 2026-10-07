@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lantern Market — create your account</title>
+<style>
+  :root { --bg:#f6f3ec; --ink:#1d2430; --muted:#5d6675; --card:#fff; --line:#e3ddd0; --accent:#2f6f5e; --accent2:#e9f3ef; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:17px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--ink); }
+  header { display:flex; align-items:center; gap:12px; padding:18px 32px; border-bottom:1px solid var(--line); background:#fffdf8; }
+  .logo { width:34px; height:34px; border-radius:9px; background:var(--accent); display:grid; place-items:center; color:#fff; font-weight:700; }
+  header b { font-size:20px; } header span { color:var(--muted); font-size:14px; margin-left:auto; }
+  main { max-width:560px; margin:48px auto; padding:0 16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:32px; box-shadow:0 6px 24px rgba(0,0,0,.05); }
+  h1 { margin:0 0 6px; font-size:28px; } p.lead { margin:0 0 24px; color:var(--muted); }
+  button { font:inherit; font-weight:600; border:0; border-radius:12px; padding:14px 20px; cursor:pointer; width:100%; }
+  .sov { background:var(--ink); color:#fff; display:flex; align-items:center; justify-content:center; gap:10px; }
+  .sov i { font-style:normal; display:inline-grid; place-items:center; width:26px; height:26px; border-radius:50%; background:#c9a227; color:#1d2430; font-size:14px; }
+  .alt { margin-top:14px; background:transparent; color:var(--muted); border:1px dashed var(--line); font-weight:500; }
+  .why { margin-top:22px; font-size:14px; color:var(--muted); }
+  .why li { margin:4px 0; }
+  .code { font:700 46px/1 ui-monospace,Consolas,monospace; letter-spacing:10px; text-align:center; padding:20px; margin:18px 0; background:var(--accent2); border-radius:12px; color:var(--accent); }
+  ol.steps { padding-left:22px; } ol.steps li { margin:6px 0; }
+  .wait { display:flex; align-items:center; gap:10px; color:var(--muted); font-size:15px; margin-top:12px; }
+  .dot { width:10px; height:10px; border-radius:50%; background:var(--accent); animation:p 1.2s infinite; }
+  @keyframes p { 50% { opacity:.25; } }
+  .ok { text-align:center; } .ok .tick { width:64px; height:64px; margin:0 auto 12px; border-radius:50%; background:var(--accent); color:#fff; font-size:34px; display:grid; place-items:center; }
+  .row { display:flex; justify-content:space-between; border-top:1px solid var(--line); padding:10px 0; font-size:15px; } .row b { font-family:ui-monospace,Consolas,monospace; }
+  .err { color:#a33; font-size:15px; margin-top:12px; }
+  .hidden { display:none; }
+  footer { text-align:center; color:var(--muted); font-size:13px; margin:28px 0; }
+</style>
+</head>
+<body>
+<header><div class="logo">L</div><b>Lantern Market</b><span>a demo site — “Sign in with SOV”</span></header>
+<main>
+  <div class="card" id="s1">
+    <h1>Create your account</h1>
+    <p class="lead">Buy and sell with neighbours. One person, one account — so no fake sellers and no fake reviews.</p>
+    <button class="sov" id="go"><i>⟡</i> Sign up with SOV</button>
+    <button class="alt" disabled>Sign up with email (closed — we only accept verified humans)</button>
+    <ul class="why">
+      <li>Your SOV wallet proves you are one real person — no documents, no selfie upload.</li>
+      <li>We never see your palm, your face or your seed words.</li>
+      <li>We get your SOV ID and the nickname the network gave you. That's all.</li>
+    </ul>
+    <div class="err hidden" id="e1"></div>
+  </div>
+
+  <div class="card hidden" id="s2">
+    <h1>Verify with your SOV wallet</h1>
+    <p class="lead">Enter this code in your SOV app within 5 minutes. The app will show the site name <b id="site"></b> — check it matches.</p>
+    <div class="code" id="code">······</div>
+    <ol class="steps">
+      <li>Open the SOV app and go to <b>Profile</b>.</li>
+      <li>Tap <b>Verify My SOV ID with External Site</b>.</li>
+      <li>Enter the code, check the site name, and tap <b>Yes, Verify Me</b>.</li>
+      <li>Choose a password for this site.</li>
+    </ol>
+    <div class="wait"><div class="dot"></div><span id="ws">Waiting for your wallet…</span></div>
+  </div>
+
+  <div class="card hidden ok" id="s3">
+    <div class="tick">✓</div>
+    <h1>Welcome, <span id="nick"></span>!</h1>
+    <p class="lead">Your account is ready. The network confirmed you are a verified, unique person.</p>
+    <div class="row"><span>SOV ID</span><b id="sid"></b></div>
+    <div class="row"><span>Verified by</span><b>SOV Network</b></div>
+    <div class="row"><span>Signed result from the network</span><b id="cb"></b></div>
+    <div class="row"><span>Accounts per person</span><b>1</b></div>
+  </div>
+  <footer>Lantern Market is a demonstration page for SOV Network’s “Sign in with SOV”. It is not a real shop.</footer>
+</main>
+<script>
+// "Sign in with SOV" — the SOV-Link app flow, through a small backend (a Cloudflare Worker):
+//   the backend asks a SOV node for a pairing code -> the citizen approves in the SOV app ->
+//   the node confirms, and ALSO posts a signed result (HMAC-checked) to the backend's registered callback URL.
+const API = 'https://sov-login-demo.sovnetworkdev.workers.dev';
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+$('go').onclick = async () => {
+  $('e1').classList.add('hidden');
+  try {
+    const s = await (await fetch(API + '/start', { method: 'POST' })).json();
+    if (!s.success) throw new Error(s.error || 'UNAVAILABLE');
+    $('code').textContent = s.pairing_code;
+    $('site').textContent = s.platform_domain;
+    $('s1').classList.add('hidden'); $('s2').classList.remove('hidden');
+    let v;
+    for (;;) {
+      v = await (await fetch(API + '/status?session_id=' + s.session_id)).json();
+      if (v.status === 'verified') break;
+      if (v.status === 'expired') throw new Error('EXPIRED');
+      await sleep(1500);
+    }
+    for (let i = 0; i < 6 && !v.callback; i++) {           // the signed callback can land a moment later
+      await sleep(1500);
+      v = await (await fetch(API + '/status?session_id=' + s.session_id)).json();
+    }
+    $('nick').textContent = v.palm_name || 'citizen';
+    $('sid').textContent = v.sovereign_id;
+    $('cb').textContent = v.callback ? 'received and checked ✓' : 'not received';
+    $('s2').classList.add('hidden'); $('s3').classList.remove('hidden');
+  } catch (e) {
+    $('s2').classList.add('hidden'); $('s1').classList.remove('hidden');
+    const m = { PLATFORM_NOT_REGISTERED: 'This site is not registered with the SOV network right now.',
+                PLATFORM_EXPIRED: 'This site’s yearly registration has expired.',
+                EXPIRED: 'The code expired. Try again.' }[e.message];
+    $('e1').textContent = m || 'Could not start sign-up: ' + e.message;
+    $('e1').classList.remove('hidden');
+  }
+};
+</script>
+</body>
+</html>
